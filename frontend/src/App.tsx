@@ -25,6 +25,8 @@ import { BatchManagementView } from './components/batches/BatchManagementView';
 import { DailyRegisterView } from './components/dailyRegister/DailyRegisterView';
 import { FeedManagementView } from './components/feed/FeedManagementView';
 import { WeightAndFcrView } from './components/growth/WeightAndFcrView';
+import { LiftingView } from './components/harvest/LiftingView';
+import { SettlementView } from './components/harvest/SettlementView';
 
 import {
   DEMO_ACTIVE_BATCH,
@@ -36,6 +38,7 @@ import { DailyLogEntry, ActiveBatchMetrics, ShedSummary } from './types/dashboar
 import { BatchItem, CreateBatchInput } from './types/batch';
 import { FeedTransaction } from './types/feed';
 import { WeightSampleItem } from './types/growth';
+import { LiftingSlipItem, SettlementVoucherItem } from './types/harvest';
 
 const INITIAL_WEIGHT_SAMPLES: WeightSampleItem[] = [
   {
@@ -210,6 +213,65 @@ export const App: React.FC = () => {
   const [batches, setBatches] = useState<BatchItem[]>(INITIAL_BATCHES);
   const [feedTransactions, setFeedTransactions] = useState<FeedTransaction[]>(INITIAL_FEED_TRANSACTIONS);
   const [weightSamples, setWeightSamples] = useState<WeightSampleItem[]>(INITIAL_WEIGHT_SAMPLES);
+  const [liftingSlips, setLiftingSlips] = useState<LiftingSlipItem[]>(DEMO_LIFTING_RECORDS);
+  const [settlementVoucher, setSettlementVoucher] = useState<SettlementVoucherItem | null>({
+    id: 1,
+    batchId: 101,
+    voucherNo: 'GC-BATCH-2026-03-A-FINAL',
+    settlementDate: '2026-05-10',
+    totalBirdsLifted: 2100,
+    totalNetWeightKg: 4220,
+    actualFcr: 1.562,
+    benchmarkFcr: 1.60,
+    actualMortalityPct: 2.84,
+    standardMortalityPct: 5.0,
+    baseGcRatePerKg: 12.50,
+    baseGrowingCharges: 52750,
+    fcrIncentive: 80.18,
+    otherIncentives: 1200,
+    mortalityDeduction: 0,
+    medicineDeduction: 350,
+    totalDeductions: 350,
+    netPayableAmount: 53680,
+    status: 'Approved',
+    remarks: 'Full batch early lifting bonus applied',
+  });
+
+  // Handle new lifting slip
+  const handleAddLiftingSlip = (slip: LiftingSlipItem) => {
+    setLiftingSlips((prev) => [slip, ...prev]);
+
+    // Update active batch lifted and remaining birds
+    setActiveBatch((prev) => {
+      const newLifted = prev.totalBirdsLifted + slip.birdsCount;
+      const liveFlock = prev.initialChicks - prev.cumulativeMortality;
+      const newRemaining = Math.max(0, liveFlock - newLifted);
+
+      return {
+        ...prev,
+        totalBirdsLifted: newLifted,
+        remainingBirds: newRemaining,
+      };
+    });
+  };
+
+  // Handle saving settlement voucher
+  const handleSaveVoucher = (voucher: SettlementVoucherItem) => {
+    setSettlementVoucher(voucher);
+    setActiveBatch((prev) => ({
+      ...prev,
+      estimatedGrowingCharges: voucher.netPayableAmount,
+      settlementStatus: voucher.status === 'Paid' ? 'Settled' : 'In Progress',
+    }));
+  };
+
+  // Handle marking voucher as paid
+  const handleMarkPaid = () => {
+    if (settlementVoucher) {
+      setSettlementVoucher((prev) => (prev ? { ...prev, status: 'Paid' } : null));
+      setActiveBatch((prev) => ({ ...prev, settlementStatus: 'Settled' }));
+    }
+  };
 
   // Handle new weight sample
   const handleAddWeightSample = (sample: Omit<WeightSampleItem, 'id'>) => {
@@ -428,6 +490,23 @@ export const App: React.FC = () => {
               activeBatch={activeBatch}
               samples={weightSamples}
               onAddSample={handleAddWeightSample}
+            />
+          ) : currentTab === 'lifting' ? (
+            /* Module 6: Bird Lifting Records View */
+            <LiftingView
+              slips={liftingSlips}
+              activeBatch={activeBatch}
+              onAddSlip={handleAddLiftingSlip}
+            />
+          ) : currentTab === 'settlement' ? (
+            /* Module 7: Payment and Settlement View */
+            <SettlementView
+              voucher={settlementVoucher}
+              activeBatch={activeBatch}
+              totalLiftedWeightKg={liftingSlips.reduce((acc, c) => acc + c.netWeightKg, 0)}
+              totalBirdsLifted={liftingSlips.reduce((acc, c) => acc + c.birdsCount, 0)}
+              onSaveVoucher={handleSaveVoucher}
+              onMarkPaid={handleMarkPaid}
             />
           ) : (
             /* Executive Dashboard View */
