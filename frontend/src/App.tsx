@@ -23,6 +23,7 @@ import { SettlementProjectionCard } from './components/dashboard/SettlementProje
 import { DailyRegisterModal } from './components/dashboard/DailyRegisterModal';
 import { BatchManagementView } from './components/batches/BatchManagementView';
 import { DailyRegisterView } from './components/dailyRegister/DailyRegisterView';
+import { FeedManagementView } from './components/feed/FeedManagementView';
 
 import {
   DEMO_ACTIVE_BATCH,
@@ -32,6 +33,43 @@ import {
 } from './data/demoData';
 import { DailyLogEntry, ActiveBatchMetrics, ShedSummary } from './types/dashboard';
 import { BatchItem, CreateBatchInput } from './types/batch';
+import { FeedTransaction } from './types/feed';
+
+const INITIAL_FEED_TRANSACTIONS: FeedTransaction[] = [
+  {
+    id: 'tx-1',
+    transactionDate: '2026-05-08',
+    feedType: 'Finisher',
+    transactionType: 'Inward',
+    bagsCount: 100,
+    weightKgPerBag: 50,
+    totalWeightKg: 5000,
+    supplierName: 'Godrej Agrovet Feed Mill',
+    supplierInvoiceNo: 'INV-2026-8801',
+    costPerBag: 2150,
+    remarks: 'Lot #FN-99 received in good condition',
+  },
+  {
+    id: 'tx-2',
+    transactionDate: '2026-05-09',
+    feedType: 'Finisher',
+    transactionType: 'Consumption',
+    bagsCount: 9,
+    weightKgPerBag: 50,
+    totalWeightKg: 450,
+    remarks: 'Shed 1 daily flock feeding',
+  },
+  {
+    id: 'tx-3',
+    transactionDate: '2026-05-10',
+    feedType: 'Finisher',
+    transactionType: 'Consumption',
+    bagsCount: 8.5,
+    weightKgPerBag: 50,
+    totalWeightKg: 425,
+    remarks: 'Shed 1 daily flock feeding',
+  },
+];
 
 const INITIAL_BATCHES: BatchItem[] = [
   {
@@ -105,6 +143,16 @@ export const App: React.FC = () => {
   const [liftingRecords] = useState(DEMO_LIFTING_RECORDS);
   const [sheds, setSheds] = useState<ShedSummary[]>(DEMO_SHEDS);
   const [batches, setBatches] = useState<BatchItem[]>(INITIAL_BATCHES);
+  const [feedTransactions, setFeedTransactions] = useState<FeedTransaction[]>(INITIAL_FEED_TRANSACTIONS);
+
+  // Handle new inward feed delivery
+  const handleAddFeedTransaction = (tx: Omit<FeedTransaction, 'id'>) => {
+    const newTx: FeedTransaction = {
+      ...tx,
+      id: Date.now().toString(),
+    };
+    setFeedTransactions((prev) => [newTx, ...prev]);
+  };
 
   // Handle new daily flock entry submission
   const handleSaveDailyEntry = (entry: DailyLogEntry) => {
@@ -277,6 +325,13 @@ export const App: React.FC = () => {
               activeBatch={activeBatch}
               onOpenModal={() => setIsDailyModalOpen(true)}
               onDeleteLog={handleDeleteLog}
+            />
+          ) : currentTab === 'feed' ? (
+            /* Module 3: Feed Management View */
+            <FeedManagementView
+              transactions={feedTransactions}
+              onAddTransaction={handleAddFeedTransaction}
+              dailyConsumptionBags={8.5}
             />
           ) : (
             /* Executive Dashboard View */
