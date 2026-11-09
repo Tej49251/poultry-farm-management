@@ -22,6 +22,7 @@ import { LiftingRegisterTable } from './components/dashboard/LiftingRegisterTabl
 import { SettlementProjectionCard } from './components/dashboard/SettlementProjectionCard';
 import { DailyRegisterModal } from './components/dashboard/DailyRegisterModal';
 import { BatchManagementView } from './components/batches/BatchManagementView';
+import { DailyRegisterView } from './components/dailyRegister/DailyRegisterView';
 
 import {
   DEMO_ACTIVE_BATCH,
@@ -189,6 +190,11 @@ export const App: React.FC = () => {
     );
   };
 
+  // Handle Deleting a Daily Log
+  const handleDeleteLog = (index: number) => {
+    setDailyLogs((prev) => prev.filter((_, i) => i !== index));
+  };
+
   // Handle Closing / Completing a Batch
   const handleCloseBatch = (batchId: number) => {
     const targetBatch = batches.find((b) => b.id === batchId);
@@ -263,6 +269,14 @@ export const App: React.FC = () => {
               sheds={sheds}
               onCreateBatch={handleCreateBatch}
               onCloseBatch={handleCloseBatch}
+            />
+          ) : currentTab === 'daily-register' ? (
+            /* Module 2: Daily Flock Register View */
+            <DailyRegisterView
+              logs={dailyLogs}
+              activeBatch={activeBatch}
+              onOpenModal={() => setIsDailyModalOpen(true)}
+              onDeleteLog={handleDeleteLog}
             />
           ) : (
             /* Executive Dashboard View */
