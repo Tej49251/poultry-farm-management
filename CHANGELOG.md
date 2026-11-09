@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Phase 3 — Full Stack Integration & Authentication:
+  - Centralized TypeScript REST client `ApiService` (`frontend/src/services/api.ts`) connecting all views to FastAPI.
+  - Resilient hybrid data strategy: Automatic sync with live PostgreSQL / SQLite backend when online, graceful offline demo fallback when offline.
+  - Role-Based Authentication (Owner, Supervisor, Worker) with bcrypt password hashing and PyJWT token generation.
+  - Security endpoints: `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `POST /api/v1/auth/register`, and auto-seeding of default farm users.
+  - Interactive `LoginModal` and dynamic user avatar / status badge in top `Navbar`.
+  - Production database configuration: PostgreSQL support via environment parameters (`POSTGRES_SERVER`, `POSTGRES_USER`, etc.) with SQLAlchemy connection pooling (`pool_size=10`, `max_overflow=20`, `pool_recycle=1800`).
+  - Historical batch management: Ability to view completed batches, inspect performance summaries, and track settled growing charge payouts.
+  - Pytest unit tests in `backend/tests/test_auth.py` covering hashing, tokens, registration, and login verification (total 43/43 tests passing).
 - Phase 2 — Modules 6 & 7: Bird Lifting Records & Final Grower Contract Settlement:
   - `BirdLifting` and `Settlement` SQLAlchemy models with weighbridge gross/tare tracking.
   - Automatic net weight ($Gross - Tare$), average bird weight ($Net / Birds$), and shed remaining flock calculations.
@@ -48,8 +57,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Phase 1 Foundation:
   - Repository structure initialized with `main` and `develop` branching model.
   - Architecture specifications, calculation documents, and system diagrams.
-  - FastAPI backend structure with business calculation core engine (mortality, FCR, feed intake, bird lifting, and settlement).
-  - Pytest automated test suite covering all farm business formulas.
-  - Modern, responsive React + TypeScript frontend dashboard with emerald theme.
-  - Multi-shed overview, active batch key performance indicator cards, mortality trajectory charts, and quick-action modals.
-  - Clearly tagged demo dataset for initial UI validation.

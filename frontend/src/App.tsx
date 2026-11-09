@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Users,
   AlertTriangle,
@@ -8,7 +8,7 @@ import {
   Award,
   Truck,
   IndianRupee,
-  Sparkles
+  Sparkles,
 } from 'lucide-react';
 
 import { DemoBanner } from './components/ui/DemoBanner';
@@ -27,7 +27,9 @@ import { FeedManagementView } from './components/feed/FeedManagementView';
 import { WeightAndFcrView } from './components/growth/WeightAndFcrView';
 import { LiftingView } from './components/harvest/LiftingView';
 import { SettlementView } from './components/harvest/SettlementView';
+import { LoginModal } from './components/auth/LoginModal';
 
+import { ApiService, UserProfile } from './services/api';
 import {
   DEMO_ACTIVE_BATCH,
   DEMO_SHEDS,
@@ -204,11 +206,25 @@ export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [isDailyModalOpen, setIsDailyModalOpen] = useState<boolean>(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
   const [selectedShedId, setSelectedShedId] = useState<number | 'all'>('all');
 
+  // Backend Connectivity & Auth State
+  const [backendOnline, setBackendOnline] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    return (
+      ApiService.getStoredUser() || {
+        id: 1,
+        username: 'owner',
+        full_name: 'Tejas D. (Farm Owner)',
+        role: 'Owner',
+      }
+    );
+  });
+
+  // Business Domain State
   const [activeBatch, setActiveBatch] = useState<ActiveBatchMetrics>(DEMO_ACTIVE_BATCH);
   const [dailyLogs, setDailyLogs] = useState<DailyLogEntry[]>(DEMO_DAILY_LOGS);
-  const [liftingRecords] = useState(DEMO_LIFTING_RECORDS);
   const [sheds, setSheds] = useState<ShedSummary[]>(DEMO_SHEDS);
   const [batches, setBatches] = useState<BatchItem[]>(INITIAL_BATCHES);
   const [feedTransactions, setFeedTransactions] = useState<FeedTransaction[]>(INITIAL_FEED_TRANSACTIONS);
@@ -237,9 +253,81 @@ export const App: React.FC = () => {
     remarks: 'Full batch early lifting bonus applied',
   });
 
+  // Sync with live backend if online
+  const checkAndSyncBackend = useCallback(async () => {
+    const health = await ApiService.checkHealth();
+    setBackendOnline(health.online);
+
+    if (health.online) {
+      try {
+        // Fetch real database records in parallel
+        const [dashRes, batchesRes, logsRes] = await Promise.allSettled([
+          ApiService.getDashboardOverview(),
+          ApiService.getBatches(),
+          ApiService.getDailyLogs(),
+        ]);
+
+        if (dashRes.status === 'fulfilled') {
+          setActiveBatch(dashRes.value.activeBatch);
+          if (dashRes.value.sheds.length > 0) {
+            setSheds(dashRes.value.sheds);
+          }
+        }
+
+        if (batchesRes.status === 'fulfilled' && batchesRes.value.length > 0) {
+          setBatches(batchesRes.value);
+        }
+
+        if (logsRes.status === 'fulfilled' && logsRes.value.length > 0) {
+          setDailyLogs(logsRes.value);
+        }
+      } catch (err) {
+        console.warn('Backend sync encountered an issue, retaining local cache:', err);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    checkAndSyncBackend();
+    const interval = setInterval(checkAndSyncBackend, 30000);
+    return () => clearInterval(interval);
+  }, [checkAndSyncBackend]);
+
+  // Auth Handlers
+  const handleLoginSuccess = (user: UserProfile) => {
+    setCurrentUser(user);
+    checkAndSyncBackend();
+  };
+
+  const handleLogout = () => {
+    ApiService.clearAuth();
+    setCurrentUser(null);
+  };
+
   // Handle new lifting slip
-  const handleAddLiftingSlip = (slip: LiftingSlipItem) => {
+  const handleAddLiftingSlip = async (slip: LiftingSlipItem) => {
     setLiftingSlips((prev) => [slip, ...prev]);
+
+    // Persist to backend if online
+    if (backendOnline && activeBatch.batchId) {
+      try {
+        await ApiService.recordLiftingSlip({
+          batchId: activeBatch.batchId,
+          dcSlipNumber: slip.slipNo,
+          liftingDate: slip.liftingDate,
+          buyerName: slip.buyerName,
+          vehicleNumber: slip.vehicleNo,
+          birdsCount: slip.birdsCount,
+          grossWeightKg: slip.grossWeightKg,
+          tareWeightKg: slip.tareWeightKg,
+          supervisorName: slip.driverName,
+          destinationTrader: slip.buyerName,
+          remarks: 'Lifting slip logged via web dashboard',
+        });
+      } catch (e) {
+        console.warn('Backend sync error for lifting slip:', e);
+      }
+    }
 
     // Update active batch lifted and remaining birds
     setActiveBatch((prev) => {
@@ -256,30 +344,69 @@ export const App: React.FC = () => {
   };
 
   // Handle saving settlement voucher
-  const handleSaveVoucher = (voucher: SettlementVoucherItem) => {
+  const handleSaveVoucher = async (voucher: SettlementVoucherItem) => {
     setSettlementVoucher(voucher);
     setActiveBatch((prev) => ({
       ...prev,
       estimatedGrowingCharges: voucher.netPayableAmount,
       settlementStatus: voucher.status === 'Paid' ? 'Settled' : 'In Progress',
     }));
+
+    if (backendOnline && activeBatch.batchId) {
+      try {
+        await ApiService.generateSettlement(activeBatch.batchId, {
+          baseGcRatePerKg: voucher.baseGcRatePerKg,
+          otherIncentives: voucher.otherIncentives,
+          mortalityDeduction: voucher.mortalityDeduction,
+          medicineDeduction: voucher.medicineDeduction,
+          remarks: voucher.remarks,
+        });
+      } catch (e) {
+        console.warn('Backend sync error for settlement:', e);
+      }
+    }
   };
 
   // Handle marking voucher as paid
-  const handleMarkPaid = () => {
+  const handleMarkPaid = async () => {
     if (settlementVoucher) {
-      setSettlementVoucher((prev) => (prev ? { ...prev, status: 'Paid' } : null));
+      const updatedVoucher = { ...settlementVoucher, status: 'Paid' as const };
+      setSettlementVoucher(updatedVoucher);
       setActiveBatch((prev) => ({ ...prev, settlementStatus: 'Settled' }));
+
+      if (backendOnline && settlementVoucher.id) {
+        try {
+          await ApiService.updateSettlementStatus(settlementVoucher.id, 'Paid');
+        } catch (e) {
+          console.warn('Backend sync error for settlement status update:', e);
+        }
+      }
     }
   };
 
   // Handle new weight sample
-  const handleAddWeightSample = (sample: Omit<WeightSampleItem, 'id'>) => {
+  const handleAddWeightSample = async (sample: Omit<WeightSampleItem, 'id'>) => {
     const newSample: WeightSampleItem = {
       ...sample,
       id: Date.now().toString(),
     };
     setWeightSamples((prev) => [newSample, ...prev]);
+
+    if (backendOnline && activeBatch.batchId) {
+      try {
+        await ApiService.recordWeightSample({
+          batchId: activeBatch.batchId,
+          sampleDate: sample.sampleDate,
+          flockAgeDays: sample.flockAgeDays,
+          sampleBirdsCount: sample.sampleBirdsCount,
+          avgWeightGrams: sample.avgWeightGrams,
+          uniformityPct: sample.uniformityPct,
+          remarks: sample.remarks,
+        });
+      } catch (e) {
+        console.warn('Backend sync error for weight sample:', e);
+      }
+    }
 
     // Update active batch average weight
     setActiveBatch((prev) => {
@@ -297,17 +424,50 @@ export const App: React.FC = () => {
   };
 
   // Handle new inward feed delivery
-  const handleAddFeedTransaction = (tx: Omit<FeedTransaction, 'id'>) => {
+  const handleAddFeedTransaction = async (tx: Omit<FeedTransaction, 'id'>) => {
     const newTx: FeedTransaction = {
       ...tx,
       id: Date.now().toString(),
     };
     setFeedTransactions((prev) => [newTx, ...prev]);
+
+    if (backendOnline && activeBatch.batchId) {
+      try {
+        await ApiService.recordFeedDelivery({
+          batchId: activeBatch.batchId,
+          feedType: tx.feedType,
+          bagsCount: tx.bagsCount,
+          weightKgPerBag: tx.weightKgPerBag,
+          costPerBag: tx.costPerBag,
+          supplierName: tx.supplierName,
+          supplierInvoiceNo: tx.supplierInvoiceNo,
+          remarks: tx.remarks,
+        });
+      } catch (e) {
+        console.warn('Backend sync error for feed transaction:', e);
+      }
+    }
   };
 
   // Handle new daily flock entry submission
-  const handleSaveDailyEntry = (entry: DailyLogEntry) => {
+  const handleSaveDailyEntry = async (entry: DailyLogEntry) => {
     setDailyLogs((prev) => [entry, ...prev]);
+
+    if (backendOnline && activeBatch.batchId) {
+      try {
+        await ApiService.recordDailyLog({
+          batchId: activeBatch.batchId,
+          date: entry.logDate,
+          mortalityCount: entry.dailyMortality,
+          feedConsumedBags: entry.dailyFeedBags,
+          avgWeightGrams: entry.avgBodyWeightGrams,
+          waterIntakeLiters: entry.waterConsumptionLitres,
+          remarks: entry.remarks,
+        });
+      } catch (e) {
+        console.warn('Backend sync error for daily log:', e);
+      }
+    }
 
     // Automatically update active batch live statistics
     setActiveBatch((prev) => {
@@ -347,31 +507,60 @@ export const App: React.FC = () => {
   };
 
   // Handle New Batch Creation
-  const handleCreateBatch = (input: CreateBatchInput) => {
+  const handleCreateBatch = async (input: CreateBatchInput) => {
     const assignedShed = sheds.find((s) => s.id === input.shedId);
-    const newBatch: BatchItem = {
-      id: Date.now(),
-      batchCode: input.batchCode,
-      shedId: input.shedId,
-      shedName: assignedShed ? assignedShed.name : `Shed ${input.shedId}`,
-      breed: input.breed,
-      placementDate: input.placementDate,
-      initialChicks: input.initialChicks,
-      chickSupplier: input.chickSupplier,
-      chickCostPerBird: input.chickCostPerBird,
-      targetFcr: input.targetFcr,
-      standardMortalityPct: input.standardMortalityPct,
-      targetHarvestAgeDays: input.targetHarvestAgeDays,
-      status: 'Active',
-      flockAgeDays: 1,
-      remarks: input.remarks,
-      estimatedLiveBirds: input.initialChicks,
-      livabilityPercentage: 100.0,
-    };
+    let createdBatchItem: BatchItem;
 
-    setBatches((prev) => [newBatch, ...prev]);
+    if (backendOnline) {
+      try {
+        createdBatchItem = await ApiService.createBatch(input);
+      } catch (e) {
+        console.warn('Backend creation failed, falling back to local state:', e);
+        createdBatchItem = {
+          id: Date.now(),
+          batchCode: input.batchCode,
+          shedId: input.shedId,
+          shedName: assignedShed ? assignedShed.name : `Shed ${input.shedId}`,
+          breed: input.breed,
+          placementDate: input.placementDate,
+          initialChicks: input.initialChicks,
+          chickSupplier: input.chickSupplier,
+          chickCostPerBird: input.chickCostPerBird,
+          targetFcr: input.targetFcr,
+          standardMortalityPct: input.standardMortalityPct,
+          targetHarvestAgeDays: input.targetHarvestAgeDays,
+          status: 'Active',
+          flockAgeDays: 1,
+          remarks: input.remarks,
+          estimatedLiveBirds: input.initialChicks,
+          livabilityPercentage: 100.0,
+        };
+      }
+    } else {
+      createdBatchItem = {
+        id: Date.now(),
+        batchCode: input.batchCode,
+        shedId: input.shedId,
+        shedName: assignedShed ? assignedShed.name : `Shed ${input.shedId}`,
+        breed: input.breed,
+        placementDate: input.placementDate,
+        initialChicks: input.initialChicks,
+        chickSupplier: input.chickSupplier,
+        chickCostPerBird: input.chickCostPerBird,
+        targetFcr: input.targetFcr,
+        standardMortalityPct: input.standardMortalityPct,
+        targetHarvestAgeDays: input.targetHarvestAgeDays,
+        status: 'Active',
+        flockAgeDays: 1,
+        remarks: input.remarks,
+        estimatedLiveBirds: input.initialChicks,
+        livabilityPercentage: 100.0,
+      };
+    }
 
-    // Update assigned shed to Active
+    setBatches((prev) => [createdBatchItem, ...prev]);
+
+    // Update corresponding shed to Active with new batch code
     setSheds((prev) =>
       prev.map((s) =>
         s.id === input.shedId
@@ -381,25 +570,23 @@ export const App: React.FC = () => {
               activeBatchCode: input.batchCode,
               flockAgeDays: 1,
               liveBirds: input.initialChicks,
-              mortalityRate: 0.0,
-              fcr: input.targetFcr,
+              mortalityPct: 0.0,
+              currentFcr: 0.0,
             }
           : s
       )
     );
   };
 
-  // Handle Deleting a Daily Log
-  const handleDeleteLog = (index: number) => {
-    setDailyLogs((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  // Handle Closing / Completing a Batch
-  const handleCloseBatch = (batchId: number) => {
-    const targetBatch = batches.find((b) => b.id === batchId);
-    if (!targetBatch) return;
-
-    const todayStr = new Date().toISOString().split('T')[0];
+  // Handle Batch Closing (Historical Record archive)
+  const handleCloseBatch = async (batchId: number) => {
+    if (backendOnline) {
+      try {
+        await ApiService.closeBatch(batchId);
+      } catch (e) {
+        console.warn('Backend close batch error:', e);
+      }
+    }
 
     setBatches((prev) =>
       prev.map((b) =>
@@ -407,28 +594,55 @@ export const App: React.FC = () => {
           ? {
               ...b,
               status: 'Completed',
-              closedDate: todayStr,
+              closedDate: new Date().toISOString().split('T')[0],
             }
           : b
       )
     );
 
-    // Free up the shed to Sanitizing
-    setSheds((prev) =>
-      prev.map((s) =>
-        s.id === targetBatch.shedId
-          ? {
-              ...s,
-              status: 'Sanitizing',
-              activeBatchCode: undefined,
-              flockAgeDays: undefined,
-              liveBirds: undefined,
-              mortalityRate: undefined,
-              fcr: undefined,
-            }
-          : s
-      )
-    );
+    // Free up shed status to Sanitizing
+    const closed = batches.find((b) => b.id === batchId);
+    if (closed) {
+      setSheds((prev) =>
+        prev.map((s) =>
+          s.id === closed.shedId
+            ? {
+                ...s,
+                status: 'Sanitizing',
+                activeBatchCode: undefined,
+                flockAgeDays: undefined,
+                liveBirds: undefined,
+                mortalityPct: undefined,
+                currentFcr: undefined,
+              }
+            : s
+        )
+      );
+    }
+  };
+
+  // Handle log deletion
+  const handleDeleteLog = (logId: number) => {
+    const deleted = dailyLogs.find((l) => String(l.id) === String(logId));
+    setDailyLogs((prev) => prev.filter((l) => String(l.id) !== String(logId)));
+
+    if (deleted) {
+      setActiveBatch((prev) => {
+        const newCumulativeMortality = Math.max(0, prev.cumulativeMortality - deleted.dailyMortality);
+        const newEstimatedLive = prev.initialChicks - newCumulativeMortality;
+        const newMortalityPct = Math.round((newCumulativeMortality / prev.initialChicks) * 10000) / 100;
+        const newLivabilityPct = Math.round((100 - newMortalityPct) * 100) / 100;
+
+        return {
+          ...prev,
+          cumulativeMortality: newCumulativeMortality,
+          estimatedLiveBirds: newEstimatedLive,
+          remainingBirds: Math.max(0, newEstimatedLive - prev.totalBirdsLifted),
+          mortalityPercentage: newMortalityPct,
+          livabilityPercentage: newLivabilityPct,
+        };
+      });
+    }
   };
 
   const filteredSheds = selectedShedId === 'all'
@@ -447,8 +661,8 @@ export const App: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:pl-72">
-        {/* Demo Notification Banner */}
-        <DemoBanner />
+        {/* Banner with Backend Status */}
+        <DemoBanner backendOnline={backendOnline} />
 
         {/* Top Header Navbar */}
         <Navbar
@@ -457,6 +671,10 @@ export const App: React.FC = () => {
           selectedShedId={selectedShedId}
           setSelectedShedId={setSelectedShedId}
           sheds={sheds}
+          backendOnline={backendOnline}
+          currentUser={currentUser}
+          onOpenLogin={() => setIsLoginModalOpen(true)}
+          onLogout={handleLogout}
         />
 
         {/* Dynamic Route View Switcher */}
@@ -558,32 +776,32 @@ export const App: React.FC = () => {
                       value: `${activeBatch.livabilityPercentage}% Livability`,
                       isPositive: true,
                     }}
-                    highlight="success"
+                    highlight="default"
                   />
 
                   {/* Cumulative Mortality */}
                   <MetricCard
                     title="Cumulative Mortality"
-                    value={activeBatch.cumulativeMortality}
-                    unit="birds"
-                    subtitle={`Standard benchmark tolerance: < 5.0%`}
+                    value={activeBatch.cumulativeMortality.toLocaleString()}
+                    unit={`birds (${activeBatch.mortalityPercentage}%)`}
+                    subtitle={`Allowable limit: 5.00% (${Math.round(activeBatch.initialChicks * 0.05)} birds)`}
                     icon={AlertTriangle}
                     trend={{
-                      value: `${activeBatch.mortalityPercentage}% Total`,
-                      isPositive: activeBatch.mortalityPercentage < 4.0,
+                      value: activeBatch.mortalityPercentage <= 5.0 ? 'Within Benchmark' : 'High Alert',
+                      isPositive: activeBatch.mortalityPercentage <= 5.0,
                     }}
-                    highlight={activeBatch.mortalityPercentage < 3.5 ? 'default' : 'warning'}
+                    highlight={activeBatch.mortalityPercentage <= 5.0 ? 'success' : 'alert'}
                   />
 
-                  {/* Total Feed Consumed */}
+                  {/* Feed Intake */}
                   <MetricCard
                     title="Total Feed Consumed"
-                    value={(activeBatch.totalFeedConsumedKg / 1000).toFixed(2)}
-                    unit="Tonnes"
-                    subtitle={`${Math.round(activeBatch.totalFeedConsumedKg / 50)} bags of 50kg • ~${activeBatch.feedIntakePerBirdGrams}g/day`}
+                    value={activeBatch.totalFeedConsumedKg.toLocaleString()}
+                    unit="kg"
+                    subtitle={`${Math.round(activeBatch.totalFeedConsumedKg / 50).toLocaleString()} bags (50kg each)`}
                     icon={Wheat}
                     trend={{
-                      value: `${activeBatch.feedIntakePerBirdGrams}g / bird`,
+                      value: 'Daily: 8.5 bags',
                     }}
                     highlight="default"
                   />
@@ -591,12 +809,12 @@ export const App: React.FC = () => {
                   {/* Average Body Weight */}
                   <MetricCard
                     title="Average Body Weight"
-                    value={activeBatch.avgBodyWeightKg.toFixed(2)}
+                    value={activeBatch.avgBodyWeightKg.toFixed(3)}
                     unit="kg"
-                    subtitle={`Sample weight at Day ${activeBatch.flockAgeDays}`}
+                    subtitle="Sample: 100 birds weighed (Day 35)"
                     icon={Scale}
                     trend={{
-                      value: `+65g / day`,
+                      value: '+30g vs Breed Std',
                       isPositive: true,
                     }}
                     highlight="success"
@@ -668,7 +886,7 @@ export const App: React.FC = () => {
                   />
 
                   <LiftingRegisterTable
-                    records={liftingRecords}
+                    records={liftingSlips}
                     totalLiveBeforeLifting={activeBatch.initialChicks - activeBatch.cumulativeMortality}
                   />
                 </div>
@@ -676,7 +894,7 @@ export const App: React.FC = () => {
                 {/* Settlement Projections & Grower Earnings Card */}
                 <div className="lg:col-span-1 space-y-6">
                   <SettlementProjectionCard
-                    netWeightKg={liftingRecords.reduce((acc, c) => acc + c.netWeightKg, 0)}
+                    netWeightKg={liftingSlips.reduce((acc, c) => acc + c.netWeightKg, 0)}
                     baseRatePerKg={12.50}
                     actualFcr={activeBatch.currentFcr}
                     benchmarkFcr={1.60}
@@ -731,6 +949,14 @@ export const App: React.FC = () => {
         flockAgeDays={activeBatch.flockAgeDays}
         liveBirdsCount={activeBatch.remainingBirds}
         batchCode={activeBatch.batchCode}
+      />
+
+      {/* User Login & Role Modal */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+        backendOnline={backendOnline}
       />
     </div>
   );

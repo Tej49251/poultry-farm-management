@@ -254,3 +254,4 @@ def update_settlement_status(settlement_id: int, update_in: SettlementStatusUpda
     db.commit()
     db.refresh(settlement)
     return settlement
+

@@ -176,3 +176,4 @@ def get_growth_overview(batch_id: int, db: Session = Depends(get_db)):
         growth_curve=curve_points,
         samples=samples,
     )
+

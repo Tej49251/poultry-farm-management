@@ -12,6 +12,7 @@ export interface LiftingSlipItem {
   netWeightKg: number;
   avgWeightKg: number;
   transitMortalityBirds?: number;
+  remarks?: string;
 }
 
 export interface SettlementVoucherItem {
@@ -36,3 +37,4 @@ export interface SettlementVoucherItem {
   status: 'Draft' | 'Approved' | 'Paid';
   remarks?: string;
 }
+

@@ -119,3 +119,4 @@ def test_growth_overview(db_session):
     assert overview.variance_from_standard_grams == 30.0
     assert len(overview.growth_curve) == 7  # 7 checkpoints
     assert len(overview.samples) == 2
+

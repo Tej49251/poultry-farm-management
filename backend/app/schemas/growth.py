@@ -50,3 +50,4 @@ class GrowthOverviewResponse(BaseModel):
     uniformity_pct: float
     growth_curve: List[GrowthCurvePoint]
     samples: List[WeightSampleResponse]
+

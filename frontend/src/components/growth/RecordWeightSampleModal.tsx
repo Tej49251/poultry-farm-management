@@ -249,3 +249,4 @@ export const RecordWeightSampleModal: React.FC<RecordWeightSampleModalProps> = (
     </div>
   );
 };
+

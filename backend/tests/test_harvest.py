@@ -197,3 +197,4 @@ def test_generate_and_update_settlement(db_session):
         db=db_session,
     )
     assert updated.status == "Paid"
+

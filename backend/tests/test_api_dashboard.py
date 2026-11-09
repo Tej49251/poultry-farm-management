@@ -11,7 +11,7 @@ from app.api.dashboard import get_dashboard_overview
 def test_health_check_handler():
     result = health_check()
     assert result["status"] == "online"
-    assert "Phase 1" in result["phase"]
+    assert "Phase" in result["phase"]
 
 
 def test_dashboard_overview_handler():

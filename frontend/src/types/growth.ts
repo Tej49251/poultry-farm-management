@@ -19,3 +19,4 @@ export interface GrowthCurvePoint {
   cumulativeFcr?: number;
   targetFcr: number;
 }
+
