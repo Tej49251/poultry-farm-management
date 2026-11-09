@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Phase 2 — Modules 4 & 5: Weight Tracking, Breed Growth Curves & FCR Analytics:
+  - `WeightSample` SQLAlchemy model and Pydantic schemas with flock age indexing.
+  - Cobb 500 & Ross 308 breed standard benchmark tables with daily weight interpolation.
+  - Average Daily Gain (ADG) calculations and flock weight uniformity % metrics.
+  - REST API endpoints (`/api/v1/growth/samples`, `/api/v1/growth/overview/{batch_id}`).
+  - Pytest test suite in `backend/tests/test_growth.py` with 4 test cases verifying growth formulas and checkpoints.
+  - Frontend `WeightAndFcrView` featuring visual growth comparison bars vs breed targets (Day 0 to Day 42) and cumulative FCR trajectories.
+  - Fast farmer modal `RecordWeightSampleModal` for live weigh-in logging.
 - Phase 2 — Module 3: Feed Management & Stock Inventory:
   - `FeedInventory` ORM model and Pydantic schemas supporting Pre-Starter, Starter, and Finisher feeds.
   - REST endpoints (`/api/v1/feed/transactions`, `/api/v1/feed/overview`) with automatic kg calculation and real-time days-left estimation.

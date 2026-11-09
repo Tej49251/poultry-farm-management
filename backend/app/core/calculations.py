@@ -246,3 +246,48 @@ def calculate_settlement(
         total_deductions=total_deductions,
         net_payable_amount=net_payable,
     )
+
+
+# Standard commercial broiler growth curve benchmarks (Cobb 500 / Ross 308)
+BREED_STANDARD_BENCHMARKS = [
+    (0, 42.0),
+    (7, 205.0),
+    (14, 510.0),
+    (21, 1010.0),
+    (28, 1590.0),
+    (35, 2240.0),
+    (42, 2890.0),
+]
+
+
+def get_breed_standard_weight(age_days: int) -> float:
+    """
+    Interpolates breed standard target body weight in grams for any given flock age.
+    """
+    if age_days <= 0:
+        return 42.0
+    if age_days >= BREED_STANDARD_BENCHMARKS[-1][0]:
+        return BREED_STANDARD_BENCHMARKS[-1][1]
+
+    for i in range(len(BREED_STANDARD_BENCHMARKS) - 1):
+        day_a, wt_a = BREED_STANDARD_BENCHMARKS[i]
+        day_b, wt_b = BREED_STANDARD_BENCHMARKS[i + 1]
+        if day_a <= age_days <= day_b:
+            ratio = (age_days - day_a) / (day_b - day_a)
+            return round(wt_a + ratio * (wt_b - wt_a), 1)
+
+    return 2240.0
+
+
+def calculate_adg(
+    prev_weight_grams: float,
+    current_weight_grams: float,
+    days_elapsed: int,
+) -> float:
+    """
+    Calculates Average Daily Gain (ADG) in grams per bird per day.
+    """
+    if days_elapsed <= 0:
+        return 0.0
+    return round((current_weight_grams - prev_weight_grams) / days_elapsed, 1)
+

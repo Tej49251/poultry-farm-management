@@ -47,6 +47,25 @@ class FeedInventory(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class WeightSample(Base):
+    __tablename__ = "weight_samples"
+
+    id = Column(Integer, primary_key=True, index=True)
+    batch_id = Column(Integer, ForeignKey("batches.id"), nullable=False, index=True)
+    sample_date = Column(Date, nullable=False, index=True)
+    flock_age_days = Column(Integer, nullable=False)
+    sample_birds_count = Column(Integer, default=100, nullable=False)
+    avg_weight_grams = Column(Float, nullable=False)
+    uniformity_pct = Column(Float, default=85.0)
+    breed_standard_target_grams = Column(Float, nullable=False)
+    variance_grams = Column(Float, nullable=False)
+    computed_cumulative_fcr = Column(Float, default=1.60)
+    remarks = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    batch = relationship("Batch", backref="weight_samples")
+
+
 class BirdLifting(Base):
     __tablename__ = "bird_liftings"
 

@@ -24,6 +24,7 @@ import { DailyRegisterModal } from './components/dashboard/DailyRegisterModal';
 import { BatchManagementView } from './components/batches/BatchManagementView';
 import { DailyRegisterView } from './components/dailyRegister/DailyRegisterView';
 import { FeedManagementView } from './components/feed/FeedManagementView';
+import { WeightAndFcrView } from './components/growth/WeightAndFcrView';
 
 import {
   DEMO_ACTIVE_BATCH,
@@ -34,6 +35,70 @@ import {
 import { DailyLogEntry, ActiveBatchMetrics, ShedSummary } from './types/dashboard';
 import { BatchItem, CreateBatchInput } from './types/batch';
 import { FeedTransaction } from './types/feed';
+import { WeightSampleItem } from './types/growth';
+
+const INITIAL_WEIGHT_SAMPLES: WeightSampleItem[] = [
+  {
+    id: 'ws-5',
+    sampleDate: '2026-05-09',
+    flockAgeDays: 35,
+    sampleBirdsCount: 100,
+    avgWeightGrams: 1980,
+    uniformityPct: 86.5,
+    breedStandardTargetGrams: 2240,
+    varianceGrams: -260,
+    computedCumulativeFcr: 1.562,
+    remarks: 'Sample across 3 random catch frames',
+  },
+  {
+    id: 'ws-4',
+    sampleDate: '2026-05-02',
+    flockAgeDays: 28,
+    sampleBirdsCount: 100,
+    avgWeightGrams: 1620,
+    uniformityPct: 88.0,
+    breedStandardTargetGrams: 1590,
+    varianceGrams: 30,
+    computedCumulativeFcr: 1.42,
+    remarks: 'Growth frame developing well on Finisher',
+  },
+  {
+    id: 'ws-3',
+    sampleDate: '2026-04-25',
+    flockAgeDays: 21,
+    sampleBirdsCount: 100,
+    avgWeightGrams: 1040,
+    uniformityPct: 87.5,
+    breedStandardTargetGrams: 1010,
+    varianceGrams: 30,
+    computedCumulativeFcr: 1.30,
+    remarks: 'Transition from Starter to Finisher pellets',
+  },
+  {
+    id: 'ws-2',
+    sampleDate: '2026-04-18',
+    flockAgeDays: 14,
+    sampleBirdsCount: 100,
+    avgWeightGrams: 530,
+    uniformityPct: 85.0,
+    breedStandardTargetGrams: 510,
+    varianceGrams: 20,
+    computedCumulativeFcr: 1.16,
+    remarks: 'Starter pellets feed conversion optimal',
+  },
+  {
+    id: 'ws-1',
+    sampleDate: '2026-04-11',
+    flockAgeDays: 7,
+    sampleBirdsCount: 100,
+    avgWeightGrams: 215,
+    uniformityPct: 89.0,
+    breedStandardTargetGrams: 205,
+    varianceGrams: 10,
+    computedCumulativeFcr: 0.94,
+    remarks: 'Pre-starter crumb intake excellent, low 7-day mortality',
+  },
+];
 
 const INITIAL_FEED_TRANSACTIONS: FeedTransaction[] = [
   {
@@ -144,6 +209,30 @@ export const App: React.FC = () => {
   const [sheds, setSheds] = useState<ShedSummary[]>(DEMO_SHEDS);
   const [batches, setBatches] = useState<BatchItem[]>(INITIAL_BATCHES);
   const [feedTransactions, setFeedTransactions] = useState<FeedTransaction[]>(INITIAL_FEED_TRANSACTIONS);
+  const [weightSamples, setWeightSamples] = useState<WeightSampleItem[]>(INITIAL_WEIGHT_SAMPLES);
+
+  // Handle new weight sample
+  const handleAddWeightSample = (sample: Omit<WeightSampleItem, 'id'>) => {
+    const newSample: WeightSampleItem = {
+      ...sample,
+      id: Date.now().toString(),
+    };
+    setWeightSamples((prev) => [newSample, ...prev]);
+
+    // Update active batch average weight
+    setActiveBatch((prev) => {
+      const newWeightKg = sample.avgWeightGrams / 1000;
+      const totalLiveWeight = prev.estimatedLiveBirds * newWeightKg;
+      const newFcr = totalLiveWeight > 0 ? Math.round((prev.totalFeedConsumedKg / totalLiveWeight) * 1000) / 1000 : prev.currentFcr;
+
+      return {
+        ...prev,
+        avgBodyWeightKg: newWeightKg,
+        currentFcr: newFcr,
+        isFcrFavorable: newFcr <= 1.60,
+      };
+    });
+  };
 
   // Handle new inward feed delivery
   const handleAddFeedTransaction = (tx: Omit<FeedTransaction, 'id'>) => {
@@ -332,6 +421,13 @@ export const App: React.FC = () => {
               transactions={feedTransactions}
               onAddTransaction={handleAddFeedTransaction}
               dailyConsumptionBags={8.5}
+            />
+          ) : currentTab === 'weight' ? (
+            /* Module 4 & 5: Weight Tracking & FCR Growth View */
+            <WeightAndFcrView
+              activeBatch={activeBatch}
+              samples={weightSamples}
+              onAddSample={handleAddWeightSample}
             />
           ) : (
             /* Executive Dashboard View */
