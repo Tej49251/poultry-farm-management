@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Phase 2 — Modules 6 & 7: Bird Lifting Records & Final Grower Contract Settlement:
+  - `BirdLifting` and `Settlement` SQLAlchemy models with weighbridge gross/tare tracking.
+  - Automatic net weight ($Gross - Tare$), average bird weight ($Net / Birds$), and shed remaining flock calculations.
+  - Validation against live birds in shed to prevent exceeding flock availability during harvest.
+  - Deterministic final grower contract settlement calculations: Base Growing Charges, FCR performance bonuses, and deductions.
+  - REST API endpoints (`/api/v1/harvest/liftings`, `/api/v1/harvest/settlement`).
+  - Pytest test suite in `backend/tests/test_harvest.py` with 5 test cases.
+  - Frontend `LiftingView` featuring weighbridge ledger, harvest completion progress bar, and "+ Log Lifting Slip" modal.
+  - Frontend `SettlementView` featuring printable/exportable itemized contract settlement vouchers with "Mark as Paid" action.
 - Phase 2 — Modules 4 & 5: Weight Tracking, Breed Growth Curves & FCR Analytics:
   - `WeightSample` SQLAlchemy model and Pydantic schemas with flock age indexing.
   - Cobb 500 & Ross 308 breed standard benchmark tables with daily weight interpolation.
