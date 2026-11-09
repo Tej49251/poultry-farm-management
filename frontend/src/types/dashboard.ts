@@ -50,7 +50,7 @@ export interface DailyLogEntry {
 }
 
 export interface BirdLiftingEntry {
-  id?: string;
+  id?: string | number;
   slipNo: string;
   liftingDate: string;
   buyerName: string;
