@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Phase 2 — Module 2: Daily Flock Register:
+  - SQLAlchemy `DailyLog` model in `backend/app/models/records.py` with multi-batch and date indexing.
+  - Complete REST API endpoints (`POST`, `GET`, `PATCH`, `DELETE`) with date-range filters and summary calculations.
+  - Automatic feed conversion (50kg bags to kg) and duplicate entry validation for identical dates.
+  - Pytest test suite in `backend/tests/test_daily_logs.py` covering all CRUD and summary calculations.
+  - Frontend `DailyRegisterView` with period mortality, feed totals, grams/bird intake, weight tracking, and real-time deletion.
 - Phase 2 — Module 1: Batch Management:
   - Database models (`Farm`, `Shed`, `Batch`) with SQLAlchemy and SQLite/PostgreSQL support.
   - REST API endpoints for batch placement, listing, filtering, and lifecycle closing.
