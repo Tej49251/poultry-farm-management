@@ -1,0 +1,336 @@
+import React, { useState } from 'react';
+import {
+  Users,
+  AlertTriangle,
+  Wheat,
+  Scale,
+  Activity,
+  Award,
+  Truck,
+  IndianRupee,
+  Sparkles
+} from 'lucide-react';
+
+import { DemoBanner } from './components/ui/DemoBanner';
+import { Sidebar } from './components/layout/Sidebar';
+import { Navbar } from './components/layout/Navbar';
+import { ActiveBatchBanner } from './components/dashboard/ActiveBatchBanner';
+import { MetricCard } from './components/dashboard/MetricCard';
+import { ShedCard } from './components/dashboard/ShedCard';
+import { RecentLogsTable } from './components/dashboard/RecentLogsTable';
+import { LiftingRegisterTable } from './components/dashboard/LiftingRegisterTable';
+import { SettlementProjectionCard } from './components/dashboard/SettlementProjectionCard';
+import { DailyRegisterModal } from './components/dashboard/DailyRegisterModal';
+
+import {
+  DEMO_ACTIVE_BATCH,
+  DEMO_SHEDS,
+  DEMO_DAILY_LOGS,
+  DEMO_LIFTING_RECORDS,
+} from './data/demoData';
+import { DailyLogEntry, ActiveBatchMetrics } from './types/dashboard';
+
+export const App: React.FC = () => {
+  const [currentTab, setCurrentTab] = useState<string>('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  const [isDailyModalOpen, setIsDailyModalOpen] = useState<boolean>(false);
+  const [selectedShedId, setSelectedShedId] = useState<number | 'all'>('all');
+
+  const [activeBatch, setActiveBatch] = useState<ActiveBatchMetrics>(DEMO_ACTIVE_BATCH);
+  const [dailyLogs, setDailyLogs] = useState<DailyLogEntry[]>(DEMO_DAILY_LOGS);
+  const [liftingRecords] = useState(DEMO_LIFTING_RECORDS);
+  const [sheds] = useState(DEMO_SHEDS);
+
+  // Handle new daily flock entry submission
+  const handleSaveDailyEntry = (entry: DailyLogEntry) => {
+    setDailyLogs((prev) => [entry, ...prev]);
+
+    // Automatically update active batch live statistics
+    setActiveBatch((prev) => {
+      const newCumulativeMortality = prev.cumulativeMortality + entry.dailyMortality;
+      const newEstimatedLive = prev.initialChicks - newCumulativeMortality;
+      const newTotalFeed = prev.totalFeedConsumedKg + entry.dailyFeedKg;
+      const newMortalityPct = Math.round((newCumulativeMortality / prev.initialChicks) * 10000) / 100;
+      const newLivabilityPct = Math.round((100 - newMortalityPct) * 100) / 100;
+
+      const newAvgWeightKg = entry.avgBodyWeightGrams
+        ? entry.avgBodyWeightGrams / 1000
+        : prev.avgBodyWeightKg;
+
+      const totalLiveWeight = newEstimatedLive * newAvgWeightKg;
+      const newFcr = totalLiveWeight > 0 ? Math.round((newTotalFeed / totalLiveWeight) * 1000) / 1000 : prev.currentFcr;
+
+      const epefDenominator = entry.flockAgeDays * newFcr;
+      const newEpef = epefDenominator > 0
+        ? Math.round((newLivabilityPct * newAvgWeightKg * 10000) / epefDenominator) / 100
+        : prev.epef;
+
+      return {
+        ...prev,
+        flockAgeDays: entry.flockAgeDays,
+        cumulativeMortality: newCumulativeMortality,
+        estimatedLiveBirds: newEstimatedLive,
+        remainingBirds: Math.max(0, newEstimatedLive - prev.totalBirdsLifted),
+        mortalityPercentage: newMortalityPct,
+        livabilityPercentage: newLivabilityPct,
+        totalFeedConsumedKg: newTotalFeed,
+        avgBodyWeightKg: newAvgWeightKg,
+        currentFcr: newFcr,
+        isFcrFavorable: newFcr <= 1.60,
+        epef: newEpef,
+      };
+    });
+  };
+
+  const filteredSheds = selectedShedId === 'all'
+    ? sheds
+    : sheds.filter((s) => s.id === selectedShedId);
+
+  return (
+    <div className="min-h-screen flex bg-slate-50 font-sans text-slate-800">
+      {/* Sidebar Navigation */}
+      <Sidebar
+        currentTab={currentTab}
+        setCurrentTab={setCurrentTab}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 lg:pl-72">
+        {/* Demo Notification Banner */}
+        <DemoBanner />
+
+        {/* Top Header Navbar */}
+        <Navbar
+          onOpenSidebar={() => setIsSidebarOpen(true)}
+          onOpenDailyModal={() => setIsDailyModalOpen(true)}
+          selectedShedId={selectedShedId}
+          setSelectedShedId={setSelectedShedId}
+          sheds={sheds}
+        />
+
+        {/* Dashboard Main View */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full">
+          {/* Active Batch Summary Banner */}
+          <ActiveBatchBanner batch={activeBatch} />
+
+          {/* Sheds Overview Grid */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
+                Shed Facility Status ({sheds.length} Units)
+              </h2>
+              {selectedShedId !== 'all' && (
+                <button
+                  onClick={() => setSelectedShedId('all')}
+                  className="text-xs font-semibold text-farm-700 hover:text-farm-800 hover:underline"
+                >
+                  Show All Sheds
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {filteredSheds.map((shed) => (
+                <ShedCard
+                  key={shed.id}
+                  shed={shed}
+                  isSelected={selectedShedId === shed.id}
+                  onSelect={() => setSelectedShedId(shed.id)}
+                />
+              ))}
+            </div>
+          </section>
+
+          {/* Core Key Performance Indicators (KPIs) */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
+              Flock Performance & Health Metrics
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Estimated Live Birds */}
+              <MetricCard
+                title="Live Birds Count"
+                value={activeBatch.estimatedLiveBirds.toLocaleString()}
+                unit={`/ ${activeBatch.initialChicks.toLocaleString()}`}
+                subtitle={`Initial placement: ${activeBatch.initialChicks.toLocaleString()} DOC`}
+                icon={Users}
+                trend={{
+                  value: `${activeBatch.livabilityPercentage}% Livability`,
+                  isPositive: true,
+                }}
+                highlight="success"
+              />
+
+              {/* Cumulative Mortality */}
+              <MetricCard
+                title="Cumulative Mortality"
+                value={activeBatch.cumulativeMortality}
+                unit="birds"
+                subtitle={`Standard benchmark tolerance: < 5.0%`}
+                icon={AlertTriangle}
+                trend={{
+                  value: `${activeBatch.mortalityPercentage}% Total`,
+                  isPositive: activeBatch.mortalityPercentage < 4.0,
+                }}
+                highlight={activeBatch.mortalityPercentage < 3.5 ? 'default' : 'warning'}
+              />
+
+              {/* Total Feed Consumed */}
+              <MetricCard
+                title="Total Feed Consumed"
+                value={(activeBatch.totalFeedConsumedKg / 1000).toFixed(2)}
+                unit="Tonnes"
+                subtitle={`${Math.round(activeBatch.totalFeedConsumedKg / 50)} bags of 50kg • ~${activeBatch.feedIntakePerBirdGrams}g/day`}
+                icon={Wheat}
+                trend={{
+                  value: `${activeBatch.feedIntakePerBirdGrams}g / bird`,
+                }}
+                highlight="default"
+              />
+
+              {/* Average Body Weight */}
+              <MetricCard
+                title="Average Body Weight"
+                value={activeBatch.avgBodyWeightKg.toFixed(2)}
+                unit="kg"
+                subtitle={`Sample weight at Day ${activeBatch.flockAgeDays}`}
+                icon={Scale}
+                trend={{
+                  value: `+65g / day`,
+                  isPositive: true,
+                }}
+                highlight="success"
+              />
+            </div>
+          </section>
+
+          {/* Secondary KPIs: FCR, EPEF, Lifting Balance, Growing Charges */}
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Current FCR */}
+            <MetricCard
+              title="Feed Conversion Ratio (FCR)"
+              value={activeBatch.currentFcr.toFixed(3)}
+              subtitle="Benchmark target: 1.600"
+              icon={Activity}
+              trend={{
+                value: activeBatch.isFcrFavorable ? 'Favorable FCR' : 'Above Target',
+                isPositive: activeBatch.isFcrFavorable,
+              }}
+              highlight={activeBatch.isFcrFavorable ? 'success' : 'alert'}
+            />
+
+            {/* European Production Efficiency Factor (EPEF) */}
+            <MetricCard
+              title="EPEF Index"
+              value={Math.round(activeBatch.epef)}
+              subtitle="Industry standard: >300 Good, >350 Excellent"
+              icon={Award}
+              trend={{
+                value: 'Top Tier 95%',
+                isPositive: true,
+              }}
+              highlight="success"
+            />
+
+            {/* Harvesting / Lifting Count */}
+            <MetricCard
+              title="Remaining in Shed"
+              value={activeBatch.remainingBirds.toLocaleString()}
+              unit="birds"
+              subtitle={`${activeBatch.totalBirdsLifted.toLocaleString()} birds lifted (${Math.round((activeBatch.totalBirdsLifted / (activeBatch.initialChicks - activeBatch.cumulativeMortality)) * 100)}%)`}
+              icon={Truck}
+              trend={{
+                value: 'Lifting Ongoing',
+              }}
+              highlight="default"
+            />
+
+            {/* Estimated Growing Charges */}
+            <MetricCard
+              title="Estimated Growing Charges"
+              value={`₹${activeBatch.estimatedGrowingCharges.toLocaleString()}`}
+              subtitle="Includes FCR performance bonus"
+              icon={IndianRupee}
+              trend={{
+                value: activeBatch.settlementStatus,
+              }}
+              highlight="success"
+            />
+          </section>
+
+          {/* Operation Tables & Settlement Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Daily Flock Register Table (2 Cols on Large) */}
+            <div className="lg:col-span-2 space-y-6">
+              <RecentLogsTable
+                logs={dailyLogs}
+                onOpenModal={() => setIsDailyModalOpen(true)}
+              />
+
+              <LiftingRegisterTable
+                records={liftingRecords}
+                totalLiveBeforeLifting={activeBatch.initialChicks - activeBatch.cumulativeMortality}
+              />
+            </div>
+
+            {/* Settlement Projections & Grower Earnings Card */}
+            <div className="lg:col-span-1 space-y-6">
+              <SettlementProjectionCard
+                netWeightKg={liftingRecords.reduce((acc, c) => acc + c.netWeightKg, 0)}
+                baseRatePerKg={12.50}
+                actualFcr={activeBatch.currentFcr}
+                benchmarkFcr={1.60}
+                status={activeBatch.settlementStatus}
+              />
+
+              {/* Quick Batch Settings & Formula Info Card */}
+              <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-2xs space-y-3">
+                <div className="flex items-center space-x-2">
+                  <div className="p-1.5 rounded-lg bg-farm-50 text-farm-700">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Standard Farm Parameters
+                  </h3>
+                </div>
+                <div className="text-xs space-y-2 text-slate-600">
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-500">Integrator / Company</span>
+                    <span className="font-semibold text-slate-800">Suguna / Venkys Integration</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-500">Contract Benchmark FCR</span>
+                    <span className="font-semibold text-slate-800">1.600</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-500">Standard Mortality Allowance</span>
+                    <span className="font-semibold text-slate-800">5.0%</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-500">Standard Feed Bag Weight</span>
+                    <span className="font-semibold text-slate-800">50 kg / bag</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-slate-500">Target Harvest Age</span>
+                    <span className="font-semibold text-slate-800">38 - 42 Days</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      {/* Farmer Daily Entry Modal */}
+      <DailyRegisterModal
+        isOpen={isDailyModalOpen}
+        onClose={() => setIsDailyModalOpen(false)}
+        onSave={handleSaveDailyEntry}
+        flockAgeDays={activeBatch.flockAgeDays}
+        liveBirdsCount={activeBatch.remainingBirds}
+        batchCode={activeBatch.batchCode}
+      />
+    </div>
+  );
+};
