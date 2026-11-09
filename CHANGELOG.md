@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Phase 2 — Module 1: Batch Management:
+  - Database models (`Farm`, `Shed`, `Batch`) with SQLAlchemy and SQLite/PostgreSQL support.
+  - REST API endpoints for batch placement, listing, filtering, and lifecycle closing.
+  - Pydantic v2 validation schemas with automated flock age computation.
+  - Comprehensive unit test suite with 8 test cases verifying CRUD, validations, and shed sanitization transitions.
+  - Modern web frontend `BatchManagementView` with filter tabs (`All`, `Active`, `Completed`, `Settled`).
+  - Farmer-first `CreateBatchModal` for seamless Day-Old-Chick intake and shed allocation.
+  - Integrated batch status lifecycle: completing a batch automatically frees and marks the assigned shed for sanitization.
 - Phase 1 Foundation:
   - Repository structure initialized with `main` and `develop` branching model.
   - Architecture specifications, calculation documents, and system diagrams.

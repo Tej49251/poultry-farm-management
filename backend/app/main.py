@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.dashboard import router as dashboard_router
+from app.api.batches import router as batches_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -27,6 +28,7 @@ app.add_middleware(
 
 # Register API Routers
 app.include_router(dashboard_router, prefix=settings.API_V1_STR)
+app.include_router(batches_router, prefix=settings.API_V1_STR)
 
 
 @app.get("/health", tags=["System"])
