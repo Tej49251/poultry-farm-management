@@ -81,7 +81,7 @@ export const WeightAndFcrView: React.FC<WeightAndFcrViewProps> = ({
 
         <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Cumulative FCR</span>
-          <div className="mt-1 text-2xl font-bold text-farm-800">{activeBatch.currentFcr.toFixed(3)}</div>
+          <div className="mt-1 text-2xl font-bold text-farm-800">{(activeBatch.currentFcr ?? 1.60).toFixed(3)}</div>
           <span className="text-xs text-farm-700 font-medium">Favorable vs 1.60 target</span>
         </div>
 

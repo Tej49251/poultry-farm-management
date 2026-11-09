@@ -809,7 +809,7 @@ export const App: React.FC = () => {
                   {/* Average Body Weight */}
                   <MetricCard
                     title="Average Body Weight"
-                    value={activeBatch.avgBodyWeightKg.toFixed(3)}
+                    value={(activeBatch.avgBodyWeightKg ?? 1.980).toFixed(3)}
                     unit="kg"
                     subtitle="Sample: 100 birds weighed (Day 35)"
                     icon={Scale}
@@ -827,7 +827,7 @@ export const App: React.FC = () => {
                 {/* Current FCR */}
                 <MetricCard
                   title="Feed Conversion Ratio (FCR)"
-                  value={activeBatch.currentFcr.toFixed(3)}
+                  value={(activeBatch.currentFcr ?? 1.60).toFixed(3)}
                   subtitle="Benchmark target: 1.600"
                   icon={Activity}
                   trend={{

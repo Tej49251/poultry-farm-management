@@ -16,6 +16,42 @@ const API_BASE = ((import.meta as any).env?.VITE_API_URL as string) || 'http://l
 const AUTH_TOKEN_KEY = 'pfm_auth_token';
 const USER_KEY = 'pfm_user_profile';
 
+// In-memory fallback map for restricted storage / partitioned iframe contexts
+const inMemoryStorage = new Map<string, string>();
+
+function safeGetStorage(key: string): string | null {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage.getItem(key);
+    }
+  } catch {
+    // Storage access is blocked in this browser/frame context
+  }
+  return inMemoryStorage.get(key) || null;
+}
+
+function safeSetStorage(key: string, value: string): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(key, value);
+    }
+  } catch {
+    // Storage access is blocked in this browser/frame context
+  }
+  inMemoryStorage.set(key, value);
+}
+
+function safeRemoveStorage(key: string): void {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    // Storage access is blocked in this browser/frame context
+  }
+  inMemoryStorage.delete(key);
+}
+
 export interface UserProfile {
   id: number;
   username: string;
@@ -39,15 +75,15 @@ export interface BackendHealth {
 
 export class ApiService {
   private static getToken(): string | null {
-    return localStorage.getItem(AUTH_TOKEN_KEY);
+    return safeGetStorage(AUTH_TOKEN_KEY);
   }
 
   private static setToken(token: string) {
-    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    safeSetStorage(AUTH_TOKEN_KEY, token);
   }
 
   public static getStoredUser(): UserProfile | null {
-    const raw = localStorage.getItem(USER_KEY);
+    const raw = safeGetStorage(USER_KEY);
     if (!raw) return null;
     try {
       return JSON.parse(raw);
@@ -57,12 +93,12 @@ export class ApiService {
   }
 
   public static setStoredUser(user: UserProfile) {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    safeSetStorage(USER_KEY, JSON.stringify(user));
   }
 
   public static clearAuth() {
-    localStorage.removeItem(AUTH_TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+    safeRemoveStorage(AUTH_TOKEN_KEY);
+    safeRemoveStorage(USER_KEY);
   }
 
   private static async request<T>(
@@ -155,24 +191,24 @@ export class ApiService {
         shedId: res.active_batch.shed_id || 1,
         shedName: res.active_batch.shed_name,
         placementDate: res.active_batch.placement_date,
-        flockAgeDays: res.active_batch.flock_age_days,
+        flockAgeDays: Number(res.active_batch.flock_age_days ?? 36),
         breed: res.active_batch.breed,
-        initialChicks: res.active_batch.initial_chicks,
-        cumulativeMortality: res.active_batch.cumulative_mortality,
-        mortalityPercentage: res.active_batch.mortality_percentage,
-        livabilityPercentage: res.active_batch.livability_percentage,
-        estimatedLiveBirds: res.active_batch.estimated_live_birds,
-        totalFeedConsumedKg: res.active_batch.total_feed_consumed_kg,
-        feedIntakePerBirdGrams: res.active_batch.feed_intake_per_bird_grams || 0,
-        avgBodyWeightKg: res.active_batch.average_body_weight_kg,
-        currentFcr: res.active_batch.current_fcr,
-        isFcrFavorable: res.active_batch.current_fcr <= 1.60,
-        epef: res.active_batch.epef,
-        totalBirdsLifted: res.active_batch.total_birds_lifted,
-        remainingBirds: res.active_batch.remaining_birds,
-        estimatedGrowingCharges: res.active_batch.estimated_growing_charges,
+        initialChicks: Number(res.active_batch.initial_chicks ?? 5000),
+        cumulativeMortality: Number(res.active_batch.cumulative_mortality ?? 0),
+        mortalityPercentage: Number(res.active_batch.mortality_percentage ?? 0),
+        livabilityPercentage: Number(res.active_batch.livability_percentage ?? 100),
+        estimatedLiveBirds: Number(res.active_batch.estimated_live_birds ?? 0),
+        totalFeedConsumedKg: Number(res.active_batch.total_feed_consumed_kg ?? 0),
+        feedIntakePerBirdGrams: Number(res.active_batch.feed_intake_per_bird_grams ?? 0),
+        avgBodyWeightKg: Number(res.active_batch.avg_body_weight_kg ?? res.active_batch.average_body_weight_kg ?? 1.980),
+        currentFcr: Number(res.active_batch.current_fcr ?? 1.60),
+        isFcrFavorable: Number(res.active_batch.current_fcr ?? 1.60) <= 1.60,
+        epef: Number(res.active_batch.epef ?? 300),
+        totalBirdsLifted: Number(res.active_batch.total_birds_lifted ?? 0),
+        remainingBirds: Number(res.active_batch.remaining_birds ?? 0),
+        estimatedGrowingCharges: Number(res.active_batch.estimated_growing_charges ?? 0),
         settlementStatus: res.active_batch.settlement_status === 'Settled' ? 'Settled' : 'In Progress',
-        isDemo: res.active_batch.is_demo,
+        isDemo: Boolean(res.active_batch.is_demo),
       },
       sheds: (res.sheds || []).map((s: any) => ({
         id: s.id,

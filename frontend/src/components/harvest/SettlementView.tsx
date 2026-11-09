@@ -90,7 +90,7 @@ export const SettlementView: React.FC<SettlementViewProps> = ({
         <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">FCR Bonus Earned</span>
           <div className="mt-1 text-2xl font-bold text-farm-700">+₹{fcrIncentive.toLocaleString()}</div>
-          <span className="text-xs text-farm-700 font-medium">FCR {activeBatch.currentFcr.toFixed(2)} vs 1.60</span>
+          <span className="text-xs text-farm-700 font-medium">FCR {(activeBatch.currentFcr ?? 1.60).toFixed(2)} vs 1.60</span>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-2xs">

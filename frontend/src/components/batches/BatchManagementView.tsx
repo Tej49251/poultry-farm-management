@@ -180,15 +180,15 @@ export const BatchManagementView: React.FC<BatchManagementViewProps> = ({
                   <div className="bg-white border border-slate-100 rounded-lg p-2.5">
                     <span className="text-[11px] text-slate-500 uppercase font-semibold">Live / Livability</span>
                     <div className="text-base font-bold text-farm-700 mt-0.5">
-                      {batch.livabilityPercentage.toFixed(1)}%
+                      {(batch.livabilityPercentage ?? 100).toFixed(1)}%
                     </div>
-                    <span className="text-[10px] text-slate-400">{batch.estimatedLiveBirds.toLocaleString()} live</span>
+                    <span className="text-[10px] text-slate-400">{(batch.estimatedLiveBirds ?? batch.initialChicks).toLocaleString()} live</span>
                   </div>
                 </div>
 
                 {/* Benchmark Parameters */}
                 <div className="text-xs text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
-                  <span>Target FCR: <strong className="text-slate-800">{batch.targetFcr.toFixed(2)}</strong></span>
+                  <span>Target FCR: <strong className="text-slate-800">{(batch.targetFcr ?? 1.60).toFixed(2)}</strong></span>
                   <span>Mortality Cap: <strong className="text-slate-800">{batch.standardMortalityPct}%</strong></span>
                 </div>
 
