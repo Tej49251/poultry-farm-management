@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Phase 2 — Module 3: Feed Management & Stock Inventory:
+  - `FeedInventory` ORM model and Pydantic schemas supporting Pre-Starter, Starter, and Finisher feeds.
+  - REST endpoints (`/api/v1/feed/transactions`, `/api/v1/feed/overview`) with automatic kg calculation and real-time days-left estimation.
+  - Reorder warning system alerting on Low Stock (< 30 bags) and Critical (< 15 bags).
+  - Pytest suite in `backend/tests/test_feed.py` verifying stock calculations and warning thresholds.
+  - Frontend `FeedManagementView` with live stage inventory cards, warehouse aggregate metrics, and searchable transactions ledger.
+  - Farmer modal `RecordFeedDeliveryModal` for rapid inward mill receipt logging.
 - Phase 2 — Module 2: Daily Flock Register:
   - SQLAlchemy `DailyLog` model in `backend/app/models/records.py` with multi-batch and date indexing.
   - Complete REST API endpoints (`POST`, `GET`, `PATCH`, `DELETE`) with date-range filters and summary calculations.

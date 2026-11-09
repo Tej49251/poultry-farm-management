@@ -33,14 +33,17 @@ class FeedInventory(Base):
     __tablename__ = "feed_inventory"
 
     id = Column(Integer, primary_key=True, index=True)
-    transaction_date = Column(Date, nullable=False)
+    transaction_date = Column(Date, nullable=False, index=True)
     feed_type = Column(String(50), nullable=False)  # Pre-Starter, Starter, Finisher
     transaction_type = Column(String(20), nullable=False)  # Inward, Consumption, Adjustment
     bags_count = Column(Float, nullable=False)
     weight_kg_per_bag = Column(Float, default=50.0)
     total_weight_kg = Column(Float, nullable=False)
+    supplier_name = Column(String(100), nullable=True)
     supplier_invoice_no = Column(String(50), nullable=True)
+    cost_per_bag = Column(Float, default=0.0)
     batch_id = Column(Integer, ForeignKey("batches.id"), nullable=True)
+    remarks = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

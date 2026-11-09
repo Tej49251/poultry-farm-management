@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.api.dashboard import router as dashboard_router
 from app.api.batches import router as batches_router
 from app.api.daily_logs import router as daily_logs_router
+from app.api.feed import router as feed_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -31,6 +32,7 @@ app.add_middleware(
 app.include_router(dashboard_router, prefix=settings.API_V1_STR)
 app.include_router(batches_router, prefix=settings.API_V1_STR)
 app.include_router(daily_logs_router, prefix=settings.API_V1_STR)
+app.include_router(feed_router, prefix=settings.API_V1_STR)
 
 
 @app.get("/health", tags=["System"])
